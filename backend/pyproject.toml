@@ -1,0 +1,15 @@
+[project]
+name = "digital-twin-prototype-backend"
+version = "0.1.0"
+description = "Backend API for the Digital Twin Prototype"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn[standard]==0.34.0",
+  "sqlmodel==0.0.22",
+  "pyodbc==5.2.0",
+  "python-multipart==0.0.20",
+]
+
+[tool.uvicorn]
+factory = false
