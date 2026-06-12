@@ -62,3 +62,69 @@
 - سرویس `append_event` برای ثبت event و اجرای projection ساده current state اضافه شد.
 - endpointهای `POST /events`، `GET /events` و `GET /events/current/*` اضافه شدند.
 - replay کامل، simulation loop و optimizer عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-009 Scenario و Snapshot
+
+- مدل‌های `Scenario` و `Snapshot` اضافه شدند.
+- ساخت Scenario با ارجاع اختیاری به `ImportBatch` پیاده‌سازی شد.
+- fork کردن Scenario از Scenario دیگر با `parent_scenario_id` و `base_snapshot_id` پیاده‌سازی شد.
+- ساخت Snapshot دستی با metadata و state ساده current state پیاده‌سازی شد.
+- eventهای `ScenarioCreated`، `ScenarioForked` و `SnapshotCreated` هنگام عملیات مربوطه ثبت می‌شوند.
+- replay کامل، optimizer و simulation branching engine عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-010 Simulation Engine حداقلی
+
+- مدل `SimulationRun` اضافه شد.
+- کنترل‌های `start`، `pause`، `resume` و `step` برای Scenario اضافه شدند.
+- واحد زمان داخلی دقیقه‌ای و در `current_sim_time` ذخیره می‌شود.
+- هر step event از نوع `SimulationStepped` ثبت می‌کند.
+- transition ساده operation از `Queued` به `Setup`، سپس `Running` و `Finished` از مسیر event store/current state پیاده‌سازی شد.
+- QC/NCR کامل، optimizer، Gantt UI و AI/ML عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-011 Optimizer اولیه بدون AI
+
+- مدل‌های `OptimizationRun` و `ScheduleOperation` اضافه شدند.
+- endpoint اجرای optimizer و تولید suggested schedule اضافه شد.
+- heuristic ساده با priority، due time، frozen window، availability ماشین/اپراتور و material availability پیاده‌سازی شد.
+- score و `changed_operations_count` برای optimization run محاسبه و ذخیره می‌شود.
+- accept schedule پیاده‌سازی شد و eventهای `OperationScheduled` و `ScheduleAccepted` ثبت می‌شوند.
+- AI/ML، prediction model و cost model عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-012 UI اولیه
+
+- layout اصلی frontend با navigation و hash route اضافه شد.
+- صفحه‌های Dashboard، Import، Scenarios، Operators، Inventory، Simulation Control و Schedule اضافه شدند.
+- API client برای `GET`، `POST` و upload چندفایلی اضافه شد.
+- Vite proxy برای `/api` به backend محلی تنظیم شد.
+- صفحه‌ها APIهای موجود backend را در حد initial UI صدا می‌زنند.
+- Gantt حرفه‌ای، drag/drop، auth/login و AI UI عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-013 Gantt و Drag/Drop
+
+- کتابخانه آماده `gantt-task-react` به frontend اضافه شد.
+- صفحه Schedule به نمای Gantt برای operationهای schedule تبدیل شد.
+- operationها بر اساس machine timeline نمایش داده می‌شوند.
+- drag/drop دستی از طریق `onDateChange` کتابخانه فعال شد.
+- validation سخت‌گیرانه قبل از apply پیاده‌سازی شد و conflictها حرکت را block می‌کنند.
+- دلایل conflict برای precedence، machine overlap، operator overlap، material blocker، calendar و blockerهای QC/Approval/NCR نمایش داده می‌شوند.
+- Gantt سفارشی از صفر و AI alternative suggestion عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-014 QC/NCR/Approval
+
+- مدل‌های `QcCheck`، `Ncr`، `NcrApproval`، `ReworkOrder` و `ReplacementOrder` اضافه شدند.
+- شروع QC، ثبت نتیجه QC و تصمیم approval دستی پیاده‌سازی شد.
+- QC pass وضعیت operation را از مسیر event/current state به `Finished` می‌برد.
+- QC fail مسیر NCR و approval سه‌مرحله‌ای می‌سازد.
+- مسیرهای fail برای rework، scrap و replacement event و artifact پایه ایجاد می‌کنند.
+- AI برای NCR، cost model و approval rule engine پیچیده عمداً پیاده‌سازی نشدند.
+
+## 2026-06-12 - TASK-015 Dashboard و Risk Rule Engine
+
+- مدل‌های `RiskRuleSetting` و `RiskScore` اضافه شدند.
+- endpointهای `/risk/settings`، `/risk/calculate/{scenario_id}` و `/risk/scores` اضافه شدند.
+- تنظیمات global ریسک شامل weightهای delay، material shortage، machine failure، QC/NCR، schedule instability و thresholdهای Low/Medium/High پیاده‌سازی شد.
+- اعتبارسنجی ترتیب thresholdها اضافه شد.
+- محاسبه rule-based برای ریسک Operation، Order و Scenario اضافه شد.
+- endpoint مدیریتی `/dashboard/manager` برای delivery، delay، production progress، capacity، bottleneck، material shortage، NCR/rework، optimizer performance و risk اضافه شد.
+- صفحه Dashboard فرانت‌اند به dashboard/risk API وصل شد و امکان محاسبه ریسک و ذخیره تنظیمات ریسک از UI اضافه شد.
+- AI/ML، KPI مالی و risk model پیش‌بینانه عمداً پیاده‌سازی نشدند.

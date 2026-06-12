@@ -48,3 +48,73 @@
 - ثبت ۴ event برای aggregateهای order، operation، machine و inventory موفق بود.
 - projectionهای current state برای order، operation، machine و inventory ساخته شدند.
 - نگاشت `OperationStarted` به status فعلی `Running` تأیید شد.
+
+## 2026-06-12 - TASK-009
+
+- `python3 -m compileall backend/app` موفق بود.
+- load شدن app و ثبت routeهای `/scenarios`، `/scenarios/{scenario_id}/fork`، `/scenarios/{scenario_id}/snapshots` و `/scenarios/snapshots/all` موفق بود.
+- ساخت Scenario با ارجاع به `ImportBatch` روی SQLite in-memory موفق بود.
+- ساخت Snapshot دستی برای Scenario با یک current order state موفق بود.
+- fork کردن Scenario از Snapshot موفق بود.
+- بعد از create/fork/snapshot تعداد ۲ Scenario، ۱ Snapshot و ۳ Event ثبت شد.
+- eventهای ثبت‌شده شامل `ScenarioCreated`، `SnapshotCreated` و `ScenarioForked` بودند.
+
+## 2026-06-12 - TASK-010
+
+- `python3 -m compileall backend/app` موفق بود.
+- load شدن app و ثبت routeهای `/simulations/{scenario_id}/start`، `/pause`، `/resume`، `/step` و `/runs` موفق بود.
+- تست SQLite in-memory با یک Scenario و یک operation با وضعیت `Queued` انجام شد.
+- start، pause، resume و سه step اجرا شدند.
+- زمان simulation از ۰ به ۳ دقیقه رسید.
+- وضعیت operation در سه step از `Queued` به `Setup`، سپس `Running` و سپس `Finished` تغییر کرد.
+- تعداد ۱۱ event شامل `SimulationStarted`، `SimulationPaused`، `SimulationResumed`، `SimulationStepped`، `OperationSetup`، `OperationStarted` و `OperationFinished` ثبت شد.
+
+## 2026-06-12 - TASK-011
+
+- `python3 -m compileall backend/app` موفق بود.
+- load شدن app و ثبت routeهای `/optimizer/run`، `/optimizer/runs`، `/optimizer/runs/{optimization_run_id}/schedule` و `/optimizer/runs/{optimization_run_id}/accept` موفق بود.
+- تست SQLite in-memory با یک Scenario، دو operation، یک machine، یک operator و یک inventory state انجام شد.
+- optimizer تعداد ۲ `ScheduleOperation` ساخت.
+- `OptimizationRun` دارای score برابر `140.0` و `changed_operations_count=2` بود.
+- accept schedule تعداد ۲ operation را پذیرفت.
+- eventهای `ScheduleSuggested`، دو event `OperationScheduled` و `ScheduleAccepted` ثبت شدند.
+
+## 2026-06-12 - TASK-012
+
+- `npm run build` در `frontend` موفق بود.
+- TypeScript compile موفق بود.
+- Vite production build موفق بود.
+- خروجی build شامل bundleهای CSS و JS تولید شد.
+
+## 2026-06-12 - TASK-013
+
+- `npm install gantt-task-react --legacy-peer-deps` موفق بود.
+- `npm run build` در `frontend` موفق بود.
+- TypeScript compile موفق بود.
+- Vite production build موفق بود.
+- Rollup درباره comment داخلی کتابخانه `gantt-task-react` هشدار داد ولی build را کامل کرد.
+
+## 2026-06-12 - TASK-014
+
+- `python3 -m compileall backend/app` موفق بود.
+- load شدن app و ثبت routeهای `/qc-ncr/checks`، `/qc-ncr/checks/{qc_check_id}/result`، `/qc-ncr/ncrs`، `/qc-ncr/approvals` و `/qc-ncr/approvals/{approval_id}/decision` موفق بود.
+- تست SQLite in-memory برای QC pass موفق بود و operation به `Finished` رفت.
+- تست SQLite in-memory برای QC fail با disposition `SimpleRework` موفق بود.
+- یک NCR، سه approval step و یک `ReworkOrder` ساخته شد.
+- بعد از approve شدن هر سه approval، operation مرتبط به `Rework` رفت.
+- eventهای `QCStarted`، `QCPassed`، `QCFailed`، `NCROpened`، `NCRApprovalRequested`، `NCRApproved`، `NCRDispositionDecided` و `ReworkCreated` ثبت شدند.
+
+## 2026-06-12 - TASK-015
+
+- `python3 -m compileall backend/app` موفق بود.
+- load شدن app و ثبت routeهای `/risk/settings`، `/risk/calculate/{scenario_id}`، `/risk/scores` و `/dashboard/manager` موفق بود.
+- تست SQLite in-memory برای Risk Rule Engine و Dashboard اجرا شد.
+- خواندن تنظیمات پیش‌فرض ریسک موفق بود.
+- به‌روزرسانی `delay_risk_weight` و `high_threshold` موفق بود.
+- validation ترتیب thresholdها با ورودی نامعتبر تست شد و خطا برگرداند.
+- محاسبه ریسک برای یک Scenario نمونه ۴ score شامل Operation، Order و Scenario ساخت.
+- داشبورد نمونه مقدارهای delivery، material shortage، NCR/rework و optimizer performance را درست aggregate کرد.
+- `npm run build` در `frontend` موفق بود.
+- TypeScript compile موفق بود.
+- Vite production build موفق بود.
+- Rollup همچنان درباره comment داخلی کتابخانه `gantt-task-react` هشدار داد ولی build را کامل کرد.

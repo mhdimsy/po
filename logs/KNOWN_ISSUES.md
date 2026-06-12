@@ -13,3 +13,20 @@
 - insert واقعی موجودی و supplier synthetic روی SQL Server در این محیط تست نشده است.
 - event store و current state روی SQL Server واقعی در این محیط تست نشده‌اند.
 - projection فعلی current state ساده است و همه event typeهای آینده را پوشش نمی‌دهد.
+- Scenario و Snapshot روی SQL Server واقعی در این محیط تست نشده‌اند.
+- fork فعلی state را به Scenario جدید کپی نمی‌کند و فقط رابطه parent/base snapshot را ثبت می‌کند.
+- simulation engine روی SQL Server واقعی در این محیط تست نشده است.
+- start conditionهای واقعی operation مثل material availability، machine capability، operator authorization، calendar و QC/NCR هنوز بررسی نمی‌شوند.
+- optimizer روی SQL Server واقعی در این محیط تست نشده است.
+- optimizer فعلی heuristic ساده است و constraint optimization کامل، machine capability، operator authorization، calendar واقعی و QC/NCR blocking را کامل اعمال نمی‌کند.
+- UI اولیه با مرورگر واقعی یا تست end-to-end بررسی نشده است.
+- UI در محیط dev برای جلوگیری از CORS از Vite proxy مسیر `/api` استفاده می‌کند.
+- `gantt-task-react` با `--legacy-peer-deps` نصب شد، چون peer dependency آن React 18 است و پروژه React 19 دارد.
+- validation مربوط به drag/drop فعلاً در frontend انجام می‌شود و backend endpoint مستقل برای validate/apply manual move وجود ندارد.
+- Gantt/drag-drop با تست مرورگر end-to-end بررسی نشده است.
+- QC/NCR/Approval روی SQL Server واقعی در این محیط تست نشده است.
+- dependent operation blocking فعلاً operation مرتبط مستقیم را block می‌کند و graph کامل وابستگی‌ها هنوز وجود ندارد.
+- Risk Rule Engine و Dashboard روی SQL Server واقعی در این محیط تست نشده‌اند.
+- فرمول ریسک فعلی heuristic و rule-based است و هنوز با داده واقعی یا نظر domain expert calibrate نشده است.
+- `purchase_requests` فعلاً `scenario_id` ندارد؛ بنابراین شمارش درخواست‌های خرید باز در داشبورد global است.
+- Dashboard با مرورگر واقعی یا تست end-to-end بررسی نشده است.

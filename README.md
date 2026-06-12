@@ -2,31 +2,78 @@
 
 نمونه محلی Digital Twin برای شبیه‌سازی تولید کارخانه.
 
-## Backend
+## پیش‌نیازها
+
+- Python 3.11 یا بالاتر
+- Node.js 20 یا بالاتر
+- npm
+- SQL Server در صورت نیاز به persistence واقعی
+- ODBC Driver 18 for SQL Server برای اتصال `pyodbc`
+
+اگر روی Ubuntu/Debian ساخت virtualenv خطا داد، این بسته را نصب کنید:
+
+```bash
+sudo apt install python3-venv
+```
+
+## راه‌اندازی Backend
+
+از ریشه پروژه:
 
 ```bash
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+```
+
+فایل `backend/.env` را باز کنید و مقدار `SQLSERVER_CONNECTION_STRING` را با SQL Server محلی خود تنظیم کنید.
+
+نمونه:
+
+```text
+SQLSERVER_CONNECTION_STRING=mssql+pyodbc://user:password@localhost:1433/DigitalTwinPrototype?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+```
+
+اجرای API:
+
+```bash
 uvicorn app.main:app --reload
+```
+
+آدرس backend:
+
+```text
+http://127.0.0.1:8000
 ```
 
 endpointهای سلامت:
 
 ```text
-GET http://localhost:8000/health
-GET http://localhost:8000/health/db
+GET http://127.0.0.1:8000/health
+GET http://127.0.0.1:8000/health/db
 ```
 
 بعد از تنظیم SQL Server، جدول‌های دیتابیس را با این endpoint بسازید:
 
 ```text
-POST http://localhost:8000/master-data/schema/create
+POST http://127.0.0.1:8000/master-data/schema/create
 ```
 
-## Frontend
+اگر `python3 -m venv` در سیستم شما در دسترس نبود، می‌توانید موقتاً dependencyها را در مسیر جدا نصب کنید:
+
+```bash
+cd backend
+python3 -m pip install --target /tmp/jobshop6-pydeps -r requirements.txt
+PYTHONPATH=/tmp/jobshop6-pydeps:. uvicorn app.main:app --reload
+```
+
+این روش فقط fallback توسعه محلی است؛ برای کار معمولی همان `.venv` بهتر است.
+
+## راه‌اندازی Frontend
+
+در ترمینال جداگانه، از ریشه پروژه:
 
 ```bash
 cd frontend
@@ -34,11 +81,97 @@ npm install
 npm run dev
 ```
 
-frontend روی این آدرس اجرا می‌شود:
+آدرس frontend:
 
 ```text
-http://localhost:5173
+http://127.0.0.1:5173
 ```
+
+فرانت‌اند درخواست‌های `/api/*` را از طریق Vite proxy به backend روی `http://127.0.0.1:8000` می‌فرستد. بنابراین برای کارکرد کامل UI باید backend هم در حال اجرا باشد.
+
+برای build production:
+
+```bash
+cd frontend
+npm run build
+```
+
+## ترتیب پیشنهادی اجرای dev
+
+1. SQL Server را آماده کنید و connection string را در `backend/.env` بگذارید.
+2. backend را اجرا کنید.
+3. یک بار `POST /master-data/schema/create` را بزنید تا جدول‌ها ساخته شوند.
+4. frontend را اجرا کنید.
+5. در مرورگر `http://127.0.0.1:5173` را باز کنید.
+
+## دیتای موردنیاز
+
+برای شروع باید Master Data تولید را به‌صورت CSV بدهید. این ۱۱ فایل لازم هستند:
+
+```text
+process_types.csv
+processes.csv
+work_centers.csv
+machines.csv
+machine_processes.csv
+bom.csv
+bom_parts.csv
+routings.csv
+routing_operations.csv
+orders.csv
+order_parts.csv
+```
+
+حداقل ستون‌های هر فایل:
+
+```text
+process_types.csv:
+Id,Title
+
+processes.csv:
+Id,Title,ProcessType_Id
+
+work_centers.csv:
+Id,Code,Title
+
+machines.csv:
+Id,Title,Barcode,WorkCenter_Id,Status
+
+machine_processes.csv:
+Id,Machine_Id,Process_Id,IsPrimary,SetupFactor,ProcessingFactor
+
+bom.csv:
+Id,Title,Code,SAPCode,UsageType_Id,PartsGroup_Id,PC
+
+bom_parts.csv:
+Id,BOMParent_Id,BOMChild_Id,Quantity,Unit
+
+routings.csv:
+Id,BOM_Id,Title,IsActive
+
+routing_operations.csv:
+Id,Routine_Id,Process_Id,OperationSequence,OperationDescription,SetupDuration,OperationDuration,AssemblyDuration,RequiresQC,IsInterruptible,CanOutsource,OutsourceLeadTimeMinutes
+
+orders.csv:
+Id,Code,Routine_Id,BOM_Id,ProductCode,CustomerName,OrderDate,EarliestStartDate,CustomerRequestedDate,CommittedDeliveryDate,InternalProductionDueDate,MaterialRequiredDate,ShipmentDate,GoodReciept
+
+order_parts.csv:
+Id,ParentOrder_Id,ChildOrder_Id,AssignmentStatus_Id,AssignmentStatusTitle
+```
+
+ترتیب منطقی آماده‌سازی داده:
+
+1. Process Typeها، Processها و WorkCenterها
+2. Machineها و قابلیت هر ماشین در `machine_processes.csv`
+3. BOM و ساختار قطعات در `bom_parts.csv`
+4. Routing و عملیات تولید در `routing_operations.csv`
+5. Orderها و رابطه orderها در `order_parts.csv`
+
+برای تست سریع، یک دیتاست کوچک هم کافی است: ۲ process، ۱ work center، ۲ machine، ۲ BOM item، ۱ routing با ۲ operation و ۱ order.
+
+نکته: در نسخه فعلی، اگر validation حتی warning بدهد، import انجام نمی‌شود. مثلاً هر machine بهتر است حداقل یک capability در `machine_processes.csv` داشته باشد.
+
+بعد از import موفق، داده‌های synthetic مثل operator، skill، shift، inventory، supplier و purchase request از داخل API/UI ساخته می‌شوند.
 
 ## ورود CSV
 
@@ -55,3 +188,20 @@ POST /imports/run
 ```
 
 هر دو endpoint فایل‌ها را به‌صورت multipart و با فیلد `files` دریافت می‌کنند. اگر validation هر error یا warning برگرداند، import انجام نمی‌شود.
+
+## endpointهای مهم توسعه
+
+```text
+GET  /health
+GET  /health/db
+POST /master-data/schema/create
+POST /imports/validate
+POST /imports/run
+GET  /scenarios
+GET  /events/current/operations
+POST /optimizer/run
+GET  /dashboard/manager
+GET  /risk/settings
+PUT  /risk/settings
+POST /risk/calculate/{scenario_id}
+```

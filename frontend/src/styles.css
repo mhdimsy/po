@@ -5,3 +5,13 @@
 body {
   margin: 0;
 }
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  min-height: 2rem;
+}
