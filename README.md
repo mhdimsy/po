@@ -36,6 +36,25 @@ cp .env.example .env
 SQLSERVER_CONNECTION_STRING=mssql+pyodbc://user:password@localhost:1433/DigitalTwinPrototype?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
 ```
 
+اگر username یا password کاراکتر خاص دارد، باید URL-encode شود. مهم‌ترین موردها:
+
+```text
+@  ->  %40
+#  ->  %23
+%  ->  %25
+/  ->  %2F
+:  ->  %3A
+?  ->  %3F
+&  ->  %26
++  ->  %2B
+```
+
+مثلاً اگر پسورد `Abc@123` باشد:
+
+```text
+SQLSERVER_CONNECTION_STRING=mssql+pyodbc://user:Abc%40123@localhost:1433/DigitalTwinPrototype?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+```
+
 اجرای API:
 
 ```bash
@@ -189,6 +208,46 @@ POST /imports/run
 
 هر دو endpoint فایل‌ها را به‌صورت multipart و با فیلد `files` دریافت می‌کنند. اگر validation هر error یا warning برگرداند، import انجام نمی‌شود.
 
+## Import از پوشه محلی
+
+برای دیتاست بزرگ‌تر، به‌جای upload از UI می‌توانید فایل‌ها را مستقیم در این پوشه بگذارید:
+
+```text
+backend/import_data/
+```
+
+نام فایل‌ها باید دقیقاً همان نام‌های موردنیاز باشد:
+
+```text
+backend/import_data/process_types.csv
+backend/import_data/processes.csv
+backend/import_data/work_centers.csv
+backend/import_data/machines.csv
+backend/import_data/machine_processes.csv
+backend/import_data/bom.csv
+backend/import_data/bom_parts.csv
+backend/import_data/routings.csv
+backend/import_data/routing_operations.csv
+backend/import_data/orders.csv
+backend/import_data/order_parts.csv
+```
+
+بعد از قرار دادن فایل‌ها، این endpoint را صدا بزنید:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/imports/reset-and-run-from-folder?source_name=folder-import"
+```
+
+رفتار این endpoint:
+
+1. فایل‌های داخل `backend/import_data/` را می‌خواند.
+2. اول validation کامل را اجرا می‌کند.
+3. اگر حتی error یا warning وجود داشته باشد، دیتابیس reset نمی‌شود و import انجام نمی‌شود.
+4. اگر validation موفق باشد، کل schema پروژه drop/create می‌شود.
+5. فایل‌های جدید import می‌شوند.
+
+این endpoint برای محیط dev است و نباید روی دیتابیس مهم یا production اجرا شود.
+
 ## endpointهای مهم توسعه
 
 ```text
@@ -197,6 +256,7 @@ GET  /health/db
 POST /master-data/schema/create
 POST /imports/validate
 POST /imports/run
+POST /imports/reset-and-run-from-folder
 GET  /scenarios
 GET  /events/current/operations
 POST /optimizer/run

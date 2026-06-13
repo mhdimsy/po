@@ -4,10 +4,12 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
+from pathlib import Path
 from typing import Callable
 
 from sqlmodel import Session
 
+from app.core.db import get_engine, reset_db_and_tables
 from app.core.time import utc_now
 from app.modules.import_factory.schemas import (
     FileValidationReport,
@@ -45,6 +47,8 @@ CSV_FILE_ORDER = [
     "orders.csv",
     "order_parts.csv",
 ]
+
+IMPORT_DATA_DIR = Path(__file__).resolve().parents[3] / "import_data"
 
 
 @dataclass(frozen=True)
@@ -308,6 +312,38 @@ def run_import(session: Session, files: dict[str, bytes], source_name: str | Non
         created_entity_counts=created_entity_counts,
         issues=[],
     )
+
+
+def reset_database_and_import_from_folder(source_name: str | None = None) -> ImportRunReport:
+    files = read_import_folder()
+    validation = validate_csv_files(files)
+    if not validation.import_ready:
+        return ImportRunReport(
+            import_batch_id=0,
+            import_ready=False,
+            total_rows=validation.total_rows,
+            imported_rows_by_file={},
+            created_entity_counts={},
+            issues=validation.issues,
+        )
+
+    reset_db_and_tables()
+    engine = get_engine()
+    if engine is None:
+        raise RuntimeError("Database connection string is not configured.")
+    with Session(engine) as session:
+        return run_import(session, files, source_name=source_name or "folder-reset-import")
+
+
+def read_import_folder() -> dict[str, bytes]:
+    if not IMPORT_DATA_DIR.exists():
+        raise RuntimeError(f"Import folder was not found: {IMPORT_DATA_DIR}")
+    files: dict[str, bytes] = {}
+    for file_name in CSV_FILE_ORDER:
+        file_path = IMPORT_DATA_DIR / file_name
+        if file_path.exists():
+            files[file_name] = file_path.read_bytes()
+    return files
 
 
 def issue(file_name: str, row_number: int | None, severity: str, code: str, message: str, field_name: str | None = None, raw_value: str | None = None) -> ValidationIssue:

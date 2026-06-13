@@ -5,6 +5,28 @@ export type HealthResponse = {
 export type ImportValidationReport = {
   import_ready: boolean;
   total_rows: number;
+  files: Array<{
+    file_name: string;
+    row_count: number;
+    errors: Array<{
+      file_name: string;
+      row_number: number | null;
+      severity: string;
+      code: string;
+      message: string;
+      field_name?: string | null;
+      raw_value?: string | null;
+    }>;
+    warnings: Array<{
+      file_name: string;
+      row_number: number | null;
+      severity: string;
+      code: string;
+      message: string;
+      field_name?: string | null;
+      raw_value?: string | null;
+    }>;
+  }>;
   issues: Array<{
     file_name: string;
     row_number: number | null;
