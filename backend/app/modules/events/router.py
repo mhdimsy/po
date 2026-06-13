@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.core.db import get_session
@@ -37,17 +38,29 @@ def append_event_endpoint(
 def list_events(
     session: Session = Depends(get_session),
     scenario_id: int | None = None,
+    event_type: str | None = None,
     aggregate_type: str | None = None,
     aggregate_id: str | None = None,
+    order_id: str | None = None,
     limit: int = Query(100, le=1000),
 ):
     statement = select(EventStore)
     if scenario_id is not None:
         statement = statement.where(EventStore.scenario_id == scenario_id)
+    if event_type is not None:
+        statement = statement.where(EventStore.event_type == event_type)
     if aggregate_type is not None:
         statement = statement.where(EventStore.aggregate_type == aggregate_type)
     if aggregate_id is not None:
         statement = statement.where(EventStore.aggregate_id == aggregate_id)
+    if order_id is not None:
+        statement = statement.where(
+            or_(
+                EventStore.aggregate_id == order_id,
+                EventStore.aggregate_id.like(f"{order_id}-%"),
+                func.JSON_VALUE(EventStore.payload_json, "$.order_id") == order_id,
+            )
+        )
     statement = statement.order_by(EventStore.event_id.desc()).limit(limit)
     return list(session.exec(statement).all())
 

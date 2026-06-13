@@ -1,5 +1,6 @@
 import { Layout } from '../components/Layout';
 import { useHashRoute } from '../hooks/useHashRoute';
+import { FactoryEventsPage } from '../pages/FactoryEvents/FactoryEventsPage';
 import { FactoryPage } from '../pages/FactoryFloor/FactoryPage';
 import { SchedulePage } from '../pages/GanttSchedule/SchedulePage';
 import { ImportPage } from '../pages/ImportWizard/ImportPage';
@@ -14,6 +15,7 @@ import { OperatorsPage } from '../pages/SyntheticData/OperatorsPage';
 const pageByRoute = {
   dashboard: <DashboardPage />,
   factory: <FactoryPage />,
+  events: <FactoryEventsPage />,
   lines: <MachineLinesPage />,
   productTree: <ProductTreePage />,
   import: <ImportPage />,

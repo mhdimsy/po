@@ -4,7 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '../../api/client';
 import { Page } from '../../components/Page';
 import { EmptyState, ErrorState, Status } from '../../components/Status';
-import type { ProductTreeNode, ProductTreeResponse, Scenario } from '../../types/api';
+import type { CurrentOperationState, OptimizationRun, ProductTreeNode, ProductTreeResponse, Scenario, ScheduleOperation } from '../../types/api';
+
+type OrderDetail = {
+  orders: ProductTreeNode[];
+  runningOperations: CurrentOperationState[];
+  plannedOperations: ScheduleOperation[];
+};
 
 export function ProductTreePage() {
   const [scenarioId, setScenarioId] = useState<number | null>(null);
@@ -12,6 +18,7 @@ export function ProductTreePage() {
   const [rootLimit, setRootLimit] = useState(10);
   const [refreshSeconds, setRefreshSeconds] = useState(5);
   const [zoom, setZoom] = useState(0.9);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const refetchInterval = Math.max(1, refreshSeconds) * 1000;
 
   const scenarios = useQuery({ queryKey: ['tree-scenarios'], queryFn: () => apiGet<Scenario[]>('/scenarios'), refetchInterval });
@@ -22,7 +29,31 @@ export function ProductTreePage() {
     enabled: activeScenarioId !== null,
     refetchInterval
   });
+  const operations = useQuery({
+    queryKey: ['tree-current-operations', activeScenarioId],
+    queryFn: () => apiGet<CurrentOperationState[]>(currentStatePath('/events/current/operations', activeScenarioId, 10000)),
+    enabled: activeScenarioId !== null,
+    refetchInterval
+  });
+  const runs = useQuery({
+    queryKey: ['tree-optimizer-runs', activeScenarioId],
+    queryFn: () => apiGet<OptimizationRun[]>(`/optimizer/runs?scenario_id=${activeScenarioId}`),
+    enabled: activeScenarioId !== null,
+    refetchInterval
+  });
+  const latestRunId = runs.data?.[0]?.id ?? null;
+  const schedule = useQuery({
+    queryKey: ['tree-schedule', latestRunId],
+    queryFn: () => apiGet<ScheduleOperation[]>(`/optimizer/runs/${latestRunId}/schedule`),
+    enabled: latestRunId !== null,
+    refetchInterval
+  });
   const totals = useMemo(() => summarizeTree(tree.data?.roots ?? []), [tree.data]);
+  const selectedNode = useMemo(() => findNode(tree.data?.roots ?? [], selectedOrderId), [selectedOrderId, tree.data]);
+  const detail = useMemo(
+    () => buildOrderDetail(selectedNode, operations.data ?? [], schedule.data ?? []),
+    [operations.data, schedule.data, selectedNode]
+  );
 
   return (
     <Page
@@ -87,6 +118,9 @@ export function ProductTreePage() {
       }
     >
       {tree.error ? <ErrorState error={tree.error} /> : null}
+      {operations.error ? <ErrorState error={operations.error} /> : null}
+      {runs.error ? <ErrorState error={runs.error} /> : null}
+      {schedule.error ? <ErrorState error={schedule.error} /> : null}
 
       <section className="grid gap-4 md:grid-cols-4">
         <TreeMetric label="Orders" value={totals.orders} subLabel={`${tree.data?.total_orders_in_scope ?? 0} in scenario`} />
@@ -120,7 +154,7 @@ export function ProductTreePage() {
           <div className="tree-canvas overflow-auto rounded border border-zinc-200 bg-zinc-50 p-6">
             <div className="flex min-w-max origin-top-left flex-col gap-8" style={{ transform: `scale(${zoom})` }}>
               {tree.data.roots.map((root) => (
-                <TreeNodeView key={root.order_id} node={root} depth={0} />
+                <TreeNodeView key={root.order_id} node={root} depth={0} selectedOrderId={selectedOrderId} onSelect={setSelectedOrderId} />
               ))}
             </div>
           </div>
@@ -128,19 +162,21 @@ export function ProductTreePage() {
           <EmptyState label="No product tree found for this scenario/order. Try another order id or rebuild the demo database." />
         )}
       </section>
+
+      <OrderDetailPanel detail={detail} node={selectedNode} onClose={() => setSelectedOrderId(null)} />
     </Page>
   );
 }
 
-function TreeNodeView({ node, depth }: { node: ProductTreeNode; depth: number }) {
+function TreeNodeView({ node, depth, selectedOrderId, onSelect }: { node: ProductTreeNode; depth: number; selectedOrderId: string | null; onSelect: (orderId: string) => void }) {
   return (
     <div className="tree-row flex items-start">
-      <OrderNodeCard node={node} depth={depth} />
+      <OrderNodeCard depth={depth} isSelected={selectedOrderId === node.order_id} node={node} onSelect={onSelect} />
       {node.children.length ? (
         <div className="tree-children relative flex flex-col gap-4 pl-12">
           {node.children.map((child) => (
             <div key={child.order_id} className="tree-child relative">
-              <TreeNodeView node={child} depth={depth + 1} />
+              <TreeNodeView node={child} depth={depth + 1} selectedOrderId={selectedOrderId} onSelect={onSelect} />
             </div>
           ))}
         </div>
@@ -149,12 +185,16 @@ function TreeNodeView({ node, depth }: { node: ProductTreeNode; depth: number })
   );
 }
 
-function OrderNodeCard({ node, depth }: { node: ProductTreeNode; depth: number }) {
+function OrderNodeCard({ node, depth, isSelected, onSelect }: { node: ProductTreeNode; depth: number; isSelected: boolean; onSelect: (orderId: string) => void }) {
   const summary = node.operation_summary;
   const progress = summary.total ? Math.round((summary.finished / summary.total) * 100) : 0;
   const activeCount = summary.running + summary.setup;
   return (
-    <div className={`tree-node w-80 shrink-0 rounded border bg-white p-4 shadow-sm ${statusBorder(node.computed_status)}`}>
+    <button
+      className={`tree-node w-80 shrink-0 rounded border bg-white p-4 text-left shadow-sm ${statusBorder(node.computed_status)} ${isSelected ? 'ring-2 ring-teal-600' : ''}`}
+      type="button"
+      onClick={() => onSelect(node.order_id)}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -179,6 +219,123 @@ function OrderNodeCard({ node, depth }: { node: ProductTreeNode; depth: number }
         <span className="rounded bg-zinc-100 px-2 py-1">{summary.total} ops</span>
         {node.assignment_status ? <span className="rounded bg-zinc-100 px-2 py-1">{node.assignment_status}</span> : null}
       </div>
+    </button>
+  );
+}
+
+function OrderDetailPanel({ detail, node, onClose }: { detail: OrderDetail | null; node: ProductTreeNode | null; onClose: () => void }) {
+  if (!node || !detail) {
+    return (
+      <section className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
+        <EmptyState label="Select an order node to see child orders and running/planned operations." />
+      </section>
+    );
+  }
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(22rem,0.7fr)_minmax(0,1.3fr)]">
+      <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-normal text-teal-700">Selected order</div>
+            <h2 className="mt-1 text-lg font-semibold">Order {node.order_id}</h2>
+            <div className="mt-1 text-sm text-zinc-500">{node.order_code ?? node.product_code ?? 'No code'}</div>
+          </div>
+          <button className="rounded border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50" type="button" onClick={onClose}>Close</button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <DetailStat label="Status" value={node.computed_status} />
+          <DetailStat label="Subtree orders" value={detail.orders.length} />
+          <DetailStat label="Running ops" value={detail.runningOperations.length} />
+          <DetailStat label="Planned ops" value={detail.plannedOperations.length} />
+        </div>
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold">Orders in this branch</h3>
+          <div className="mt-2 max-h-80 space-y-2 overflow-auto pr-1">
+            {detail.orders.map((order) => (
+              <div key={order.order_id} className="rounded border border-zinc-200 p-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{order.order_id}</span>
+                  <Status value={order.computed_status} />
+                </div>
+                <div className="mt-1 truncate text-xs text-zinc-500">{order.order_code ?? order.product_code ?? '-'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <OperationList title="Running now" operations={detail.runningOperations} emptyLabel="No operation in this branch is currently running." />
+          <ScheduleList title="Planned next" schedule={detail.plannedOperations} emptyLabel="No planned operation found for this branch." />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DetailStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded border border-zinc-200 bg-zinc-50 p-3">
+      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="mt-1 font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function OperationList({ title, operations, emptyLabel }: { title: string; operations: CurrentOperationState[]; emptyLabel: string }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 max-h-[30rem] space-y-2 overflow-auto pr-1">
+        {operations.length ? operations.map((operation) => (
+          <div key={operation.id} className="rounded border border-zinc-200 p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-medium">{operation.operation_id}</span>
+              <Status value={operation.status} />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <DetailCell label="Order" value={operation.order_id ?? '-'} />
+              <DetailCell label="Machine" value={operation.machine_id ?? '-'} />
+              <DetailCell label="Operator" value={operation.operator_id ?? '-'} />
+              <DetailCell label="Duration" value={`${String(operation.payload_json.duration ?? operation.payload_json.operation_duration ?? '-')}m`} />
+            </div>
+          </div>
+        )) : <EmptyState label={emptyLabel} />}
+      </div>
+    </div>
+  );
+}
+
+function ScheduleList({ title, schedule, emptyLabel }: { title: string; schedule: ScheduleOperation[]; emptyLabel: string }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 max-h-[30rem] space-y-2 overflow-auto pr-1">
+        {schedule.length ? schedule.map((item) => (
+          <div key={item.id} className="rounded border border-zinc-200 p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-medium">{item.operation_id}</span>
+              <Status value={item.status} />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <DetailCell label="Order" value={item.order_id ?? '-'} />
+              <DetailCell label="Machine" value={item.machine_id ?? '-'} />
+              <DetailCell label="Operator" value={item.operator_id ?? '-'} />
+              <DetailCell label="Window" value={`${item.start_time} -> ${item.end_time}`} />
+            </div>
+          </div>
+        )) : <EmptyState label={emptyLabel} />}
+      </div>
+    </div>
+  );
+}
+
+function DetailCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded bg-zinc-50 p-2">
+      <div className="text-zinc-500">{label}</div>
+      <div className="mt-1 truncate font-medium text-zinc-900">{value}</div>
     </div>
   );
 }
@@ -220,6 +377,67 @@ function productTreePath(scenarioId: number | null, rootOrderId: string, rootLim
     params.set('root_order_id', rootOrderId.trim());
   }
   return `/scenarios/${scenarioId}/product-tree?${params.toString()}`;
+}
+
+function currentStatePath(path: string, scenarioId: number | null, limit: number) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (scenarioId !== null) {
+    params.set('scenario_id', String(scenarioId));
+  }
+  return `${path}?${params.toString()}`;
+}
+
+function findNode(roots: ProductTreeNode[], orderId: string | null): ProductTreeNode | null {
+  if (!orderId) {
+    return null;
+  }
+  for (const root of roots) {
+    const found = findNodeRecursive(root, orderId);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function findNodeRecursive(node: ProductTreeNode, orderId: string): ProductTreeNode | null {
+  if (node.order_id === orderId) {
+    return node;
+  }
+  for (const child of node.children) {
+    const found = findNodeRecursive(child, orderId);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function buildOrderDetail(node: ProductTreeNode | null, operations: CurrentOperationState[], schedule: ScheduleOperation[]): OrderDetail | null {
+  if (!node) {
+    return null;
+  }
+  const orders = flattenOrders(node);
+  const orderIds = new Set(orders.map((order) => order.order_id));
+  const runningOperations = operations
+    .filter((operation) => operation.order_id !== null && orderIds.has(operation.order_id))
+    .filter((operation) => ['Running', 'Setup', 'QC', 'Rework'].includes(operation.status))
+    .sort((a, b) => a.operation_id.localeCompare(b.operation_id))
+    .slice(0, 80);
+  const plannedOperations = schedule
+    .filter((item) => item.order_id !== null && orderIds.has(item.order_id))
+    .filter((item) => !runningOperations.some((operation) => operation.operation_id === item.operation_id))
+    .sort((a, b) => a.start_time - b.start_time)
+    .slice(0, 120);
+  return { orders, runningOperations, plannedOperations };
+}
+
+function flattenOrders(root: ProductTreeNode): ProductTreeNode[] {
+  const orders = [root];
+  for (const child of root.children) {
+    orders.push(...flattenOrders(child));
+  }
+  return orders;
 }
 
 function summarizeTree(roots: ProductTreeNode[]) {

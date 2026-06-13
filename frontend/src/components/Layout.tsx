@@ -14,6 +14,7 @@ type LayoutProps = {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'factory', label: 'Factory' },
+  { id: 'events', label: 'Events' },
   { id: 'lines', label: 'Machine Lines' },
   { id: 'productTree', label: 'Product Tree' },
   { id: 'import', label: 'Import' },
