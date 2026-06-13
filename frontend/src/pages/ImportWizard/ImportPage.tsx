@@ -1,10 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { apiUpload } from '../../api/client';
+import { apiPost, apiUpload } from '../../api/client';
+import { LoadingButton } from '../../components/LoadingButton';
 import { Page } from '../../components/Page';
 import { EmptyState, ErrorState, Status } from '../../components/Status';
-import type { ImportValidationReport } from '../../types/api';
+import type { ImportValidationReport, RebuildDemoResponse } from '../../types/api';
 
 const requiredFiles = [
   'process_types.csv',
@@ -34,13 +35,48 @@ export function ImportPage() {
   const runImport = useMutation({
     mutationFn: () => apiUpload('/imports/run', files, { source_name: 'frontend-upload' })
   });
+  const rebuildDemo = useMutation({
+    mutationFn: () => apiPost<RebuildDemoResponse>('/imports/rebuild-demo', { scenario_name: 'Factory Demo', max_orders: 500 })
+  });
   const visibleIssues = validate.data?.issues.slice(0, ISSUE_RENDER_LIMIT) ?? [];
   const hiddenIssueCount = Math.max(0, (validate.data?.issues.length ?? 0) - ISSUE_RENDER_LIMIT);
 
   return (
     <Page title="CSV Import" eyebrow="Factory data">
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="rounded border border-zinc-200 bg-white p-4">
+      <section className="rounded border border-teal-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_auto] xl:items-center">
+          <div>
+            <h2 className="text-lg font-semibold">One-click demo setup</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-600">
+              Rebuilds the dev database from repaired factory sample files, imports master data, and initializes a ready factory scenario.
+            </p>
+          </div>
+          <LoadingButton
+            className="px-5"
+            loading={rebuildDemo.isPending}
+            onClick={() => rebuildDemo.mutate()}
+          >
+            Rebuild Demo Database
+          </LoadingButton>
+        </div>
+        {rebuildDemo.isPending ? (
+          <div className="mt-4 overflow-hidden rounded border border-teal-100 bg-teal-50">
+            <div className="conveyor-flow h-2" />
+            <div className="px-3 py-2 text-sm text-teal-900">Repairing files, resetting schema, importing data, and creating the demo scenario...</div>
+          </div>
+        ) : null}
+        {rebuildDemo.error ? <div className="mt-3"><ErrorState error={rebuildDemo.error} /></div> : null}
+        {rebuildDemo.data ? (
+          <div className="mt-3 grid gap-2 text-sm md:grid-cols-4">
+            <Status value={`Batch ${rebuildDemo.data.import_report.import_batch_id}`} />
+            <Status value={`${rebuildDemo.data.orders_seeded} orders`} />
+            <Status value={`${rebuildDemo.data.operations_seeded} operations`} />
+            <Status value={`${rebuildDemo.data.machines_seeded} machines`} />
+          </div>
+        ) : null}
+      </section>
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <label className="block text-sm font-medium text-zinc-700" htmlFor="csv-files">
             CSV files
           </label>
@@ -64,25 +100,23 @@ export function ImportPage() {
             {selectedRequiredFiles.length} of {requiredFiles.length} required files selected
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className="rounded bg-teal-700 px-3 py-2 text-sm font-medium text-white disabled:bg-zinc-300"
-              type="button"
+            <LoadingButton
               disabled={!files.length || validate.isPending}
+              loading={validate.isPending}
               onClick={() => validate.mutate()}
             >
               Validate
-            </button>
-            <button
-              className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 disabled:text-zinc-400"
-              type="button"
+            </LoadingButton>
+            <LoadingButton
+              variant="secondary"
               disabled={!hasAllRequiredFiles || runImport.isPending}
+              loading={runImport.isPending}
               onClick={() => runImport.mutate()}
             >
               Import
-            </button>
-            <button
-              className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 disabled:text-zinc-400"
-              type="button"
+            </LoadingButton>
+            <LoadingButton
+              variant="secondary"
               disabled={!files.length || validate.isPending || runImport.isPending}
               onClick={() => {
                 setFiles([]);
@@ -91,7 +125,7 @@ export function ImportPage() {
               }}
             >
               Clear
-            </button>
+            </LoadingButton>
           </div>
           {missingFiles.length ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -122,7 +156,7 @@ export function ImportPage() {
             </div>
           ) : null}
         </div>
-        <div className="rounded border border-zinc-200 bg-white p-4">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Validation report</h2>
             <Status value={validate.data ? (validate.data.import_ready ? 'Ready' : 'Blocked') : 'Idle'} />

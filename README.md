@@ -108,6 +108,13 @@ http://127.0.0.1:5173
 
 فرانت‌اند درخواست‌های `/api/*` را از طریق Vite proxy به backend روی `http://127.0.0.1:8000` می‌فرستد. بنابراین برای کارکرد کامل UI باید backend هم در حال اجرا باشد.
 
+برای شروع ساده از UI:
+
+1. وارد صفحه `Import` شوید.
+2. دکمه `Rebuild Demo Database` را بزنید.
+3. بعد از پایان rebuild، وارد صفحه `Factory` شوید.
+4. دکمه `Build program` را بزنید تا برنامه اولیه ساخته و روی timeline نمایش داده شود.
+
 برای build production:
 
 ```bash
@@ -232,6 +239,29 @@ backend/import_data/orders.csv
 backend/import_data/order_parts.csv
 ```
 
+اگر فایل‌های خام export واقعی کارخانه را در این پوشه گذاشته‌اید:
+
+```text
+backend/import_data/data/
+```
+
+می‌توانید خروجی قابل import دمو را با این دستور بسازید:
+
+```bash
+python3 backend/scripts/repair_import_data.py
+```
+
+این دستور:
+
+- `NULL` متنی را به مقدار خالی تبدیل می‌کند.
+- فایل‌های موردنیاز importer را در `backend/import_data/` می‌سازد.
+- برای machineهای بدون WorkCenter، WorkCenter synthetic معتبر انتخاب می‌کند.
+- ردیف‌های `order_parts` بدون parent/child معتبر را برای import دمو حذف می‌کند.
+- برای operationهای بدون duration، duration محافظه‌کارانه synthetic می‌گذارد.
+- برای routingهای بدون operation، operation synthetic اضافه می‌کند.
+
+این repair برای محیط توسعه و دمو است؛ جایگزین حقیقت عملیاتی کارخانه نیست.
+
 بعد از قرار دادن فایل‌ها، این endpoint را صدا بزنید:
 
 ```bash
@@ -257,6 +287,7 @@ POST /master-data/schema/create
 POST /imports/validate
 POST /imports/run
 POST /imports/reset-and-run-from-folder
+POST /imports/rebuild-demo
 GET  /scenarios
 GET  /events/current/operations
 POST /optimizer/run

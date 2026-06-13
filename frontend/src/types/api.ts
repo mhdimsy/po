@@ -36,6 +36,28 @@ export type ImportValidationReport = {
   }>;
 };
 
+export type RebuildDemoResponse = {
+  import_report: {
+    import_batch_id: number;
+    import_ready: boolean;
+    total_rows: number;
+    imported_rows_by_file: Record<string, number>;
+    created_entity_counts: Record<string, number>;
+    issues: Array<{
+      file_name: string;
+      row_number: number | null;
+      severity: string;
+      code: string;
+      message: string;
+    }>;
+  };
+  scenario_id: number;
+  scenario_name: string;
+  orders_seeded: number;
+  operations_seeded: number;
+  machines_seeded: number;
+};
+
 export type Scenario = {
   id: number;
   name: string;
@@ -43,6 +65,45 @@ export type Scenario = {
   parent_scenario_id: number | null;
   base_snapshot_id: number | null;
   base_import_batch_id: number | null;
+};
+
+export type ScenarioSeedResponse = {
+  scenario_id: number;
+  import_batch_id: number;
+  orders_seeded: number;
+  operations_seeded: number;
+  machines_seeded: number;
+  skipped_orders_without_routing: number;
+  max_orders: number;
+};
+
+export type ProductTreeOperationSummary = {
+  total: number;
+  queued: number;
+  setup: number;
+  running: number;
+  finished: number;
+  blocked: number;
+  other: number;
+};
+
+export type ProductTreeNode = {
+  order_id: string;
+  order_code: string | null;
+  product_code: string | null;
+  status: string;
+  computed_status: string;
+  assignment_status: string | null;
+  operation_summary: ProductTreeOperationSummary;
+  children: ProductTreeNode[];
+};
+
+export type ProductTreeResponse = {
+  scenario_id: number;
+  root_count: number;
+  total_orders_in_scope: number;
+  max_depth: number;
+  roots: ProductTreeNode[];
 };
 
 export type Operator = {
@@ -78,6 +139,41 @@ export type SimulationRun = {
   status: string;
   speed_factor: number;
   current_sim_time: number;
+  started_at?: string;
+  paused_at?: string | null;
+  stopped_at?: string | null;
+};
+
+export type SimulationStepResponse = {
+  run: SimulationRun;
+  events_created: number;
+  operation_transition: {
+    operation_id: string;
+    machine_id?: string | null;
+    operator_id?: string | null;
+    previous_status: string;
+    next_status: string;
+    event_type: string;
+  } | null;
+  operation_transitions?: Array<{
+    operation_id: string;
+    machine_id?: string | null;
+    operator_id?: string | null;
+    previous_status: string;
+    next_status: string;
+    event_type: string;
+  }>;
+};
+
+export type FactoryEvent = {
+  event_id: number;
+  event_type: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  scenario_id: number | null;
+  payload_json: Record<string, unknown>;
+  simulation_time: number | null;
+  created_at: string;
 };
 
 export type OptimizationRun = {
@@ -103,6 +199,28 @@ export type ScheduleOperation = {
     constraints_checked?: string[];
     [key: string]: unknown;
   };
+};
+
+export type CurrentOperationState = {
+  id: number;
+  scenario_id: number | null;
+  operation_id: string;
+  order_id: string | null;
+  machine_id: string | null;
+  operator_id: string | null;
+  status: string;
+  simulation_time: number | null;
+  payload_json: Record<string, unknown>;
+};
+
+export type CurrentMachineState = {
+  id: number;
+  scenario_id: number | null;
+  machine_id: string;
+  status: string;
+  current_operation_id: string | null;
+  simulation_time: number | null;
+  payload_json: Record<string, unknown>;
 };
 
 export type RiskSettings = {

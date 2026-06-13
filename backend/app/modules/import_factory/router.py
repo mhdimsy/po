@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlmodel import Session
 
 from app.core.db import get_session
-from app.modules.import_factory.schemas import ImportRunReport, ImportValidationReport
-from app.modules.import_factory.service import reset_database_and_import_from_folder, run_import, validate_csv_files
+from app.modules.import_factory.schemas import ImportRunReport, ImportValidationReport, RebuildDemoRequest, RebuildDemoResponse
+from app.modules.import_factory.service import rebuild_demo_database, reset_database_and_import_from_folder, run_import, validate_csv_files
 
 router = APIRouter(tags=["imports"])
 
@@ -29,3 +29,8 @@ async def run_import_endpoint(
 @router.post("/reset-and-run-from-folder", response_model=ImportRunReport)
 def reset_and_run_from_folder(source_name: str | None = None):
     return reset_database_and_import_from_folder(source_name=source_name)
+
+
+@router.post("/rebuild-demo", response_model=RebuildDemoResponse)
+def rebuild_demo(request: RebuildDemoRequest | None = None):
+    return rebuild_demo_database(request or RebuildDemoRequest())

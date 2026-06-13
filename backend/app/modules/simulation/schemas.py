@@ -12,6 +12,7 @@ class SimulationStartRequest(BaseModel):
 class SimulationStepRequest(BaseModel):
     minutes: int = Field(default=1, ge=1, le=10080)
     process_one_operation: bool = True
+    max_operation_transitions: int | None = Field(default=None, ge=1, le=500)
 
 
 class SimulationRunRead(BaseModel):
@@ -31,3 +32,4 @@ class SimulationStepResponse(BaseModel):
     run: SimulationRunRead
     events_created: int
     operation_transition: dict[str, Any] | None = None
+    operation_transitions: list[dict[str, Any]] = Field(default_factory=list)

@@ -6,11 +6,14 @@ from app.modules.scenarios.models import Scenario, Snapshot
 from app.modules.scenarios.schemas import (
     ScenarioCreateRequest,
     ScenarioForkRequest,
+    ProductTreeResponse,
     ScenarioRead,
+    ScenarioSeedRequest,
+    ScenarioSeedResponse,
     SnapshotCreateRequest,
     SnapshotRead,
 )
-from app.modules.scenarios.service import create_scenario, create_snapshot, fork_scenario
+from app.modules.scenarios.service import create_scenario, create_snapshot, fork_scenario, get_product_tree, seed_scenario_from_master_data
 
 router = APIRouter(tags=["scenarios"])
 
@@ -37,6 +40,15 @@ def fork_scenario_endpoint(
     return fork_scenario(session, scenario_id, request)
 
 
+@router.post("/{scenario_id}/seed-from-master-data", response_model=ScenarioSeedResponse)
+def seed_scenario_from_master_data_endpoint(
+    scenario_id: int,
+    request: ScenarioSeedRequest | None = None,
+    session: Session = Depends(get_session),
+):
+    return seed_scenario_from_master_data(session, scenario_id, request or ScenarioSeedRequest())
+
+
 @router.post("/{scenario_id}/snapshots", response_model=SnapshotRead)
 def create_snapshot_endpoint(
     scenario_id: int,
@@ -44,6 +56,23 @@ def create_snapshot_endpoint(
     session: Session = Depends(get_session),
 ):
     return create_snapshot(session, scenario_id, request or SnapshotCreateRequest())
+
+
+@router.get("/{scenario_id}/product-tree", response_model=ProductTreeResponse)
+def get_product_tree_endpoint(
+    scenario_id: int,
+    root_order_id: str | None = None,
+    root_limit: int = Query(25, ge=1, le=100),
+    max_depth: int = Query(6, ge=1, le=20),
+    session: Session = Depends(get_session),
+):
+    return get_product_tree(
+        session,
+        scenario_id=scenario_id,
+        root_order_id=root_order_id,
+        root_limit=root_limit,
+        max_depth=max_depth,
+    )
 
 
 @router.get("/{scenario_id}/snapshots", response_model=list[SnapshotRead])

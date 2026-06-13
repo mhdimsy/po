@@ -15,6 +15,8 @@ from app.modules.import_factory.schemas import (
     FileValidationReport,
     ImportRunReport,
     ImportValidationReport,
+    RebuildDemoRequest,
+    RebuildDemoResponse,
     ValidationIssue,
 )
 from app.modules.master_data.models import (
@@ -32,6 +34,10 @@ from app.modules.master_data.models import (
     RoutingOperation,
     WorkCenter,
 )
+from app.modules.scenarios.models import Scenario
+from app.modules.scenarios.schemas import ScenarioSeedRequest
+from app.modules.scenarios.service import seed_scenario_from_master_data
+from scripts.repair_import_data import main as repair_import_data
 
 
 CSV_FILE_ORDER = [
@@ -333,6 +339,51 @@ def reset_database_and_import_from_folder(source_name: str | None = None) -> Imp
         raise RuntimeError("Database connection string is not configured.")
     with Session(engine) as session:
         return run_import(session, files, source_name=source_name or "folder-reset-import")
+
+
+def rebuild_demo_database(request: RebuildDemoRequest) -> RebuildDemoResponse:
+    repair_import_data()
+    import_report = reset_database_and_import_from_folder(source_name="one-click-demo-rebuild")
+    if not import_report.import_ready:
+        return RebuildDemoResponse(
+            import_report=import_report,
+            scenario_id=0,
+            scenario_name=request.scenario_name,
+            orders_seeded=0,
+            operations_seeded=0,
+            machines_seeded=0,
+        )
+
+    engine = get_engine()
+    if engine is None:
+        raise RuntimeError("Database connection string is not configured.")
+    with Session(engine) as session:
+        scenario = Scenario(
+            name=request.scenario_name,
+            base_import_batch_id=import_report.import_batch_id,
+            status="Draft",
+            notes="Created by one-click demo rebuild.",
+        )
+        session.add(scenario)
+        session.commit()
+        session.refresh(scenario)
+        seed = seed_scenario_from_master_data(
+            session,
+            scenario.id,
+            ScenarioSeedRequest(
+                import_batch_id=import_report.import_batch_id,
+                max_orders=request.max_orders,
+                reset_existing_state=True,
+            ),
+        )
+        return RebuildDemoResponse(
+            import_report=import_report,
+            scenario_id=scenario.id,
+            scenario_name=scenario.name,
+            orders_seeded=seed.orders_seeded,
+            operations_seeded=seed.operations_seeded,
+            machines_seeded=seed.machines_seeded,
+        )
 
 
 def read_import_folder() -> dict[str, bytes]:

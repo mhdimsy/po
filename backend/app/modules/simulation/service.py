@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from sqlalchemy import case
 from sqlmodel import Session, select
 
 from app.core.time import utc_now
-from app.modules.events.models import CurrentOperationState
+from app.modules.events.models import CurrentMachineState, CurrentOperationState
 from app.modules.events.schemas import EventAppendRequest
 from app.modules.events.service import append_event
 from app.modules.scenarios.models import Scenario
@@ -122,14 +123,30 @@ def step_simulation(session: Session, scenario_id: int, request: SimulationStepR
     )
 
     events_created = 1
-    transition = None
+    transitions: list[dict] = []
     if request.process_one_operation:
-        transition = transition_one_operation(session, scenario_id, run.current_sim_time)
-        if transition is not None:
-            events_created += 1
+        transition_limit = request.max_operation_transitions or min(max(1, request.minutes), 120)
+        transitions = transition_operations(session, scenario_id, run.current_sim_time, transition_limit)
+        events_created += len(transitions)
+        sync_machine_states_from_operations(session, scenario_id, run.current_sim_time)
 
     session.refresh(run)
-    return SimulationStepResponse(run=run, events_created=events_created, operation_transition=transition)
+    return SimulationStepResponse(
+        run=run,
+        events_created=events_created,
+        operation_transition=transitions[-1] if transitions else None,
+        operation_transitions=transitions,
+    )
+
+
+def transition_operations(session: Session, scenario_id: int, simulation_time: int, limit: int) -> list[dict]:
+    transitions: list[dict] = []
+    for _ in range(limit):
+        transition = transition_one_operation(session, scenario_id, simulation_time)
+        if transition is None:
+            break
+        transitions.append(transition)
+    return transitions
 
 
 def transition_one_operation(session: Session, scenario_id: int, simulation_time: int) -> dict | None:
@@ -137,7 +154,7 @@ def transition_one_operation(session: Session, scenario_id: int, simulation_time
         select(CurrentOperationState)
         .where(CurrentOperationState.scenario_id == scenario_id)
         .where(CurrentOperationState.status.in_(list(OPERATION_TRANSITIONS.keys())))
-        .order_by(CurrentOperationState.id)
+        .order_by(status_priority_case(), CurrentOperationState.id)
     ).first()
     if operation is None:
         return None
@@ -163,10 +180,54 @@ def transition_one_operation(session: Session, scenario_id: int, simulation_time
     )
     return {
         "operation_id": operation.operation_id,
+        "machine_id": operation.machine_id,
+        "operator_id": operation.operator_id,
         "previous_status": previous_status,
         "next_status": next_status,
         "event_type": event_type,
     }
+
+
+def sync_machine_states_from_operations(session: Session, scenario_id: int, simulation_time: int) -> None:
+    running_operations = session.exec(
+        select(CurrentOperationState)
+        .where(CurrentOperationState.scenario_id == scenario_id)
+        .where(CurrentOperationState.status.in_(["Running", "Setup", "QC", "Rework"]))
+    ).all()
+    operation_by_machine = {
+        operation.machine_id: operation
+        for operation in running_operations
+        if operation.machine_id is not None
+    }
+    machines = session.exec(select(CurrentMachineState).where(CurrentMachineState.scenario_id == scenario_id)).all()
+    for machine in machines:
+        running_operation = operation_by_machine.get(machine.machine_id)
+        if running_operation is None:
+            if machine.status in {"Busy", "Running", "Setup"}:
+                machine.status = "Available"
+                machine.current_operation_id = None
+                machine.simulation_time = simulation_time
+                session.add(machine)
+            continue
+        machine.status = "Running" if running_operation.status == "Running" else "Busy"
+        machine.current_operation_id = running_operation.operation_id
+        machine.simulation_time = simulation_time
+        machine.payload_json = {
+            **(machine.payload_json or {}),
+            "current_operation_status": running_operation.status,
+            "current_order_id": running_operation.order_id,
+        }
+        session.add(machine)
+    session.commit()
+
+
+def status_priority_case():
+    return case(
+        (CurrentOperationState.status == "Setup", 0),
+        (CurrentOperationState.status == "Queued", 1),
+        (CurrentOperationState.status == "Running", 2),
+        else_=3,
+    )
 
 
 def list_simulation_runs(session: Session, scenario_id: int) -> list[SimulationRun]:

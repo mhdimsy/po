@@ -25,6 +25,51 @@ class SnapshotCreateRequest(BaseModel):
     metadata_json: dict[str, Any] = Field(default_factory=dict)
 
 
+class ScenarioSeedRequest(BaseModel):
+    import_batch_id: int | None = None
+    max_orders: int = Field(default=500, ge=1, le=5000)
+    reset_existing_state: bool = True
+
+
+class ScenarioSeedResponse(BaseModel):
+    scenario_id: int
+    import_batch_id: int
+    orders_seeded: int
+    operations_seeded: int
+    machines_seeded: int
+    skipped_orders_without_routing: int
+    max_orders: int
+
+
+class ProductTreeOperationSummary(BaseModel):
+    total: int
+    queued: int
+    setup: int
+    running: int
+    finished: int
+    blocked: int
+    other: int
+
+
+class ProductTreeNode(BaseModel):
+    order_id: str
+    order_code: str | None = None
+    product_code: str | None = None
+    status: str
+    computed_status: str
+    assignment_status: str | None = None
+    operation_summary: ProductTreeOperationSummary
+    children: list["ProductTreeNode"] = Field(default_factory=list)
+
+
+class ProductTreeResponse(BaseModel):
+    scenario_id: int
+    root_count: int
+    total_orders_in_scope: int
+    max_depth: int
+    roots: list[ProductTreeNode]
+
+
 class ScenarioRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { apiGet, apiPost } from '../../api/client';
+import { LoadingButton } from '../../components/LoadingButton';
 import { Page } from '../../components/Page';
 import { EmptyState, ErrorState, Status } from '../../components/Status';
-import type { Scenario } from '../../types/api';
+import type { Scenario, ScenarioSeedResponse } from '../../types/api';
 
 export function ScenarioPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState('New Scenario');
+  const [maxOrders, setMaxOrders] = useState(500);
   const scenarios = useQuery({ queryKey: ['scenarios'], queryFn: () => apiGet<Scenario[]>('/scenarios') });
   const createScenario = useMutation({
     mutationFn: () => apiPost<Scenario>('/scenarios', { name }),
@@ -21,22 +23,50 @@ export function ScenarioPage() {
   const snapshotScenario = useMutation({
     mutationFn: (scenarioId: number) => apiPost(`/scenarios/${scenarioId}/snapshots`, { reason: 'Manual UI snapshot' })
   });
+  const seedScenario = useMutation({
+    mutationFn: (scenarioId: number) =>
+      apiPost<ScenarioSeedResponse>(`/scenarios/${scenarioId}/seed-from-master-data`, {
+        max_orders: maxOrders,
+        reset_existing_state: true
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] });
+      queryClient.invalidateQueries({ queryKey: ['manager-dashboard'] });
+    }
+  });
 
   return (
     <Page title="Scenarios" eyebrow="Scenario manager">
-      <section className="rounded border border-zinc-200 bg-white p-4">
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <section className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row">
           <input
             className="min-w-0 flex-1 rounded border border-zinc-300 px-3 py-2 text-sm"
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <button className="rounded bg-teal-700 px-3 py-2 text-sm font-medium text-white" type="button" onClick={() => createScenario.mutate()}>
+          <label className="flex items-center gap-2 text-sm text-zinc-600">
+            Orders
+            <input
+              className="w-28 rounded border border-zinc-300 px-3 py-2 text-sm"
+              min={1}
+              max={5000}
+              type="number"
+              value={maxOrders}
+              onChange={(event) => setMaxOrders(Number(event.target.value))}
+            />
+          </label>
+          <LoadingButton loading={createScenario.isPending} onClick={() => createScenario.mutate()}>
             Create
-          </button>
+          </LoadingButton>
         </div>
       </section>
       {scenarios.error ? <ErrorState error={scenarios.error} /> : null}
+      {seedScenario.error ? <ErrorState error={seedScenario.error} /> : null}
+      {seedScenario.data ? (
+        <div className="rounded border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900">
+          Scenario initialized: {seedScenario.data.orders_seeded} orders, {seedScenario.data.operations_seeded} operations, {seedScenario.data.machines_seeded} machines.
+        </div>
+      ) : null}
       <section className="overflow-hidden rounded border border-zinc-200 bg-white">
         {scenarios.data?.length ? (
           <table className="w-full text-left text-sm">
@@ -50,8 +80,17 @@ export function ScenarioPage() {
                   <td className="p-3"><Status value={scenario.status} /></td>
                   <td className="p-3">{scenario.parent_scenario_id ?? '-'}</td>
                   <td className="space-x-2 p-3">
-                    <button className="rounded border border-zinc-300 px-2 py-1 text-xs" type="button" onClick={() => forkScenario.mutate(scenario.id)}>Fork</button>
-                    <button className="rounded border border-zinc-300 px-2 py-1 text-xs" type="button" onClick={() => snapshotScenario.mutate(scenario.id)}>Snapshot</button>
+                    <LoadingButton className="min-h-7 px-2 py-1 text-xs" variant="secondary" loading={forkScenario.isPending} onClick={() => forkScenario.mutate(scenario.id)}>Fork</LoadingButton>
+                    <LoadingButton className="min-h-7 px-2 py-1 text-xs" variant="secondary" loading={snapshotScenario.isPending} onClick={() => snapshotScenario.mutate(scenario.id)}>Snapshot</LoadingButton>
+                    <LoadingButton
+                      className="min-h-7 px-2 py-1 text-xs"
+                      variant="secondary"
+                      disabled={seedScenario.isPending}
+                      loading={seedScenario.isPending}
+                      onClick={() => seedScenario.mutate(scenario.id)}
+                    >
+                      Initialize
+                    </LoadingButton>
                   </td>
                 </tr>
               ))}

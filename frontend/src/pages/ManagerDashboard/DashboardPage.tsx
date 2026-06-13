@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiGet, apiPost, apiPut } from '../../api/client';
+import { LoadingButton } from '../../components/LoadingButton';
 import { Page } from '../../components/Page';
 import { ErrorState, Status } from '../../components/Status';
 import type {
@@ -90,13 +91,14 @@ export function DashboardPage() {
               </option>
             ))}
           </select>
-          <button
-            className="h-9 rounded bg-teal-700 px-3 text-sm font-medium text-white disabled:bg-zinc-300"
+          <LoadingButton
+            className="h-9 px-4"
             disabled={!selectedScenarioId || calculateRisk.isPending}
+            loading={calculateRisk.isPending}
             onClick={() => selectedScenarioId && calculateRisk.mutate(selectedScenarioId)}
           >
             Calculate risk
-          </button>
+          </LoadingButton>
         </>
       }
     >
@@ -114,8 +116,8 @@ export function DashboardPage() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <div className="rounded border border-zinc-200 bg-white p-4">
+      <section className="grid gap-4 2xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.75fr)]">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Operational dashboard</h2>
             <Status value={dashboard.isFetching ? 'Refreshing' : 'Idle'} />
@@ -162,7 +164,7 @@ export function DashboardPage() {
           ) : null}
         </div>
 
-        <div className="rounded border border-zinc-200 bg-white p-4">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold">Risk settings</h2>
           {settingsDraft ? (
             <div className="mt-3 grid gap-3">
@@ -181,20 +183,22 @@ export function DashboardPage() {
                   />
                 </label>
               ))}
-              <button
-                className="h-9 rounded bg-zinc-900 px-3 text-sm font-medium text-white disabled:bg-zinc-300"
+              <LoadingButton
+                className="h-9"
+                variant="dark"
                 disabled={saveSettings.isPending}
+                loading={saveSettings.isPending}
                 onClick={() => settingsDraft && saveSettings.mutate(settingsDraft)}
               >
                 Save settings
-              </button>
+              </LoadingButton>
             </div>
           ) : null}
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded border border-zinc-200 bg-white p-4">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold">Bottlenecks</h2>
           <div className="mt-3 space-y-2 text-sm">
             {dashboard.data?.bottleneck.length ? (
@@ -210,7 +214,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded border border-zinc-200 bg-white p-4">
+        <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold">Top risk scores</h2>
           <div className="mt-3 space-y-2 text-sm">
             {dashboard.data?.risk.length ? (

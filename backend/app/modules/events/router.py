@@ -53,25 +53,60 @@ def list_events(
 
 
 @router.get("/current/orders", response_model=list[CurrentOrderStateRead])
-def list_current_orders(session: Session = Depends(get_session), limit: int = Query(100, le=1000)):
-    return list(session.exec(select(CurrentOrderState).limit(limit)).all())
+def list_current_orders(
+    session: Session = Depends(get_session),
+    scenario_id: int | None = None,
+    limit: int = Query(100, le=5000),
+):
+    statement = select(CurrentOrderState)
+    if scenario_id is not None:
+        statement = statement.where(CurrentOrderState.scenario_id == scenario_id)
+    return list(session.exec(statement.limit(limit)).all())
 
 
 @router.get("/current/operations", response_model=list[CurrentOperationStateRead])
-def list_current_operations(session: Session = Depends(get_session), limit: int = Query(100, le=1000)):
-    return list(session.exec(select(CurrentOperationState).limit(limit)).all())
+def list_current_operations(
+    session: Session = Depends(get_session),
+    scenario_id: int | None = None,
+    limit: int = Query(100, le=10000),
+):
+    statement = select(CurrentOperationState)
+    if scenario_id is not None:
+        statement = statement.where(CurrentOperationState.scenario_id == scenario_id)
+    return list(session.exec(statement.limit(limit)).all())
 
 
 @router.get("/current/machines", response_model=list[CurrentMachineStateRead])
-def list_current_machines(session: Session = Depends(get_session), limit: int = Query(100, le=1000)):
-    return list(session.exec(select(CurrentMachineState).limit(limit)).all())
+def list_current_machines(
+    session: Session = Depends(get_session),
+    scenario_id: int | None = None,
+    limit: int = Query(100, le=5000),
+):
+    statement = select(CurrentMachineState)
+    if scenario_id is not None:
+        statement = statement.where(CurrentMachineState.scenario_id == scenario_id)
+    return list(session.exec(statement.limit(limit)).all())
 
 
 @router.get("/current/operators", response_model=list[CurrentOperatorStateRead])
-def list_current_operators(session: Session = Depends(get_session), limit: int = Query(100, le=1000)):
-    return list(session.exec(select(CurrentOperatorState).limit(limit)).all())
+def list_current_operators(
+    session: Session = Depends(get_session),
+    scenario_id: int | None = None,
+    limit: int = Query(100, le=5000),
+):
+    statement = select(CurrentOperatorState)
+    if scenario_id is not None:
+        statement = statement.where(CurrentOperatorState.scenario_id == scenario_id)
+    return list(session.exec(statement.limit(limit)).all())
 
 
 @router.get("/current/inventory", response_model=list[CurrentInventoryStateRead])
-def list_current_inventory(session: Session = Depends(get_session), limit: int = Query(100, le=1000)):
-    return list(session.exec(select(CurrentInventoryState).limit(limit)).all())
+def list_current_inventory(
+    session: Session = Depends(get_session),
+    scenario_id: int | None = None,
+    limit: int = Query(100, le=5000),
+):
+    statement = select(CurrentInventoryState)
+    if scenario_id is not None:
+        statement = statement.where(CurrentInventoryState.scenario_id == scenario_id)
+    return list(session.exec(statement.limit(limit)).all())

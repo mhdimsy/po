@@ -32,3 +32,17 @@ class ImportRunReport(BaseModel):
     imported_rows_by_file: dict[str, int]
     created_entity_counts: dict[str, int]
     issues: list[ValidationIssue]
+
+
+class RebuildDemoRequest(BaseModel):
+    scenario_name: str = "Factory Demo"
+    max_orders: int = 500
+
+
+class RebuildDemoResponse(BaseModel):
+    import_report: ImportRunReport
+    scenario_id: int
+    scenario_name: str
+    orders_seeded: int
+    operations_seeded: int
+    machines_seeded: int

@@ -13,6 +13,9 @@ type LayoutProps = {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'factory', label: 'Factory' },
+  { id: 'lines', label: 'Machine Lines' },
+  { id: 'productTree', label: 'Product Tree' },
   { id: 'import', label: 'Import' },
   { id: 'scenarios', label: 'Scenarios' },
   { id: 'operators', label: 'Operators' },
@@ -66,7 +69,7 @@ export function Layout({ activeRoute, onNavigate, children }: LayoutProps) {
             Local V1 Control Surface
           </div>
         </header>
-        <main className="mx-auto max-w-7xl px-4 py-5">{children}</main>
+        <main className="mx-auto max-w-[1600px] px-4 py-5 xl:px-6 2xl:px-8">{children}</main>
       </div>
     </div>
   );

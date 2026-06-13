@@ -4,6 +4,7 @@ import { Gantt, Task, ViewMode } from 'gantt-task-react';
 import 'gantt-task-react/dist/index.css';
 
 import { apiGet, apiPost } from '../../api/client';
+import { LoadingButton } from '../../components/LoadingButton';
 import { Page } from '../../components/Page';
 import { EmptyState, ErrorState, Status } from '../../components/Status';
 import type { OptimizationRun, Scenario, ScheduleOperation } from '../../types/api';
@@ -72,7 +73,7 @@ export function SchedulePage() {
 
   return (
     <Page title="Gantt Schedule" eyebrow="Manual planning">
-      <section className="rounded border border-zinc-200 bg-white p-4">
+      <section className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
           <select className="rounded border border-zinc-300 px-3 py-2 text-sm" value={scenarioId ?? ''} onChange={(event) => setScenarioId(event.target.value ? Number(event.target.value) : null)}>
             <option value="">Select scenario</option>
@@ -82,12 +83,12 @@ export function SchedulePage() {
             <option value="">Select run</option>
             {runs.data?.map((run) => <option key={run.id} value={run.id}>Run {run.id} · {run.status} · score {run.score}</option>)}
           </select>
-          <button className="rounded bg-teal-700 px-3 py-2 text-sm font-medium text-white disabled:bg-zinc-300" disabled={!scenarioId} type="button" onClick={() => runOptimizer.mutate()}>Run</button>
-          <button className="rounded border border-zinc-300 px-3 py-2 text-sm disabled:text-zinc-400" disabled={!runId} type="button" onClick={() => accept.mutate()}>Accept</button>
+          <LoadingButton disabled={!scenarioId} loading={runOptimizer.isPending} onClick={() => runOptimizer.mutate()}>Run</LoadingButton>
+          <LoadingButton variant="secondary" disabled={!runId} loading={accept.isPending} onClick={() => accept.mutate()}>Accept</LoadingButton>
         </div>
       </section>
       {schedule.error ? <ErrorState error={schedule.error} /> : null}
-      <section className="rounded border border-zinc-200 bg-white p-4">
+      <section className="rounded border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm font-semibold">Machine timeline</div>
           <div className="flex flex-wrap gap-2">
@@ -119,7 +120,7 @@ export function SchedulePage() {
           <EmptyState label="No schedule selected for Gantt." />
         )}
       </section>
-      <section className="overflow-hidden rounded border border-zinc-200 bg-white">
+      <section className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
         {schedule.data?.length ? (
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-xs uppercase tracking-normal text-zinc-500"><tr><th className="p-3">Operation</th><th className="p-3">Machine</th><th className="p-3">Operator</th><th className="p-3">Window</th><th className="p-3">Status</th><th className="p-3">Score</th></tr></thead>
